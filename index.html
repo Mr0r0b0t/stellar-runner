@@ -1,1 +1,81 @@
-<!-- Game HTML Placeholder -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    Stellar Runner – Milky Way Drift (v1.0)
+    © 2025 VIVEK SINGH · github.com/Mr0r0b0t · vsingh9619@gmail.com
+    MIT License
+  -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="author" content="Vivek Singh" />
+  <meta name="description" content="Stellar Runner – Milky Way Drift by Vivek Singh. A space-themed HTML5 canvas runner." />
+  <meta name="theme-color" content="#0b1330" />
+  <link rel="manifest" href="manifest.json">
+  <title>Stellar Runner – Milky Way Drift</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="brandWatermark" aria-hidden="true">© 2025 VIVEK SINGH · Stellar Runner</div>
+  <canvas id="game" aria-label="Stellar Runner canvas" role="img"></canvas>
+
+  <!-- HUD -->
+  <div class="hudTop" id="hud">
+    <div class="chip" id="scoreChip">Score: 0</div>
+    <div class="chip" id="livesChip">Shields: 0</div>
+    <button class="chip" id="muteBtn" aria-pressed="false" title="Mute/Unmute">🔊</button>
+  </div>
+
+  <!-- Start overlay -->
+  <div class="overlay" id="startOverlay" aria-hidden="false">
+    <div class="panel" role="dialog" aria-labelledby="startTitle">
+      <div class="content">
+        <h2 class="title" id="startTitle">Stellar Runner - Milky Way Drift</h2>
+        <div class="muted"><b>Created by VIVEK SINGH</b> · © 2025 · github.com/Mr0r0b0t</div>
+        <div class="muted">
+          Pilot your astronaut through space gates. Collect <b>Stars</b> (+10) and rare glowing <b>Suns</b> (extra shield).
+          <b>Meteoroids</b> streak in later — avoid them!
+        </div>
+        <div class="row">
+          <button id="startBtn" class="btn primary">Start</button>
+          <button id="helpBtn" class="btn ghost">Help</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help modal -->
+  <div class="overlay hide" id="helpOverlay" aria-hidden="true">
+    <div class="panel" role="dialog" aria-labelledby="helpTitle">
+      <div class="content">
+        <h2 class="title" id="helpTitle">How to Play</h2>
+        <div class="muted">Desktop & Mobile</div>
+        <div class="muted" style="margin-top:6px">
+          <b>Credits:</b> Game design & code by <b>VIVEK SINGH</b>. All artwork & audio are generated in-code.
+        </div>
+        <ul class="muted helpList">
+          <li>Hold <span class="kbd">Space</span>/<span class="kbd">↑</span> (or tap/hold) to thrust upward; release to drift down.</li>
+          <li>Each gate spawns <b>either</b> a <b>Star</b> (+10) <b>or</b> a bright <b>Sun</b> (extra shield) — never both.</li>
+          <li><b>Meteoroids</b> arrive from the right, limited in number; they move faster at higher scores.</li>
+          <li>Difficulty scales up <b>every 100 points</b> (speed increases, gaps tighten).</li>
+          <li>Mute/unmute with <span class="kbd">M</span> or the 🔊 button.</li>
+        </ul>
+        <div class="row">
+          <button id="backBtn" class="btn ghost">Back</button>
+          <button id="playBtn" class="btn primary">Play</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    // Register service worker (PWA/offline)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+      });
+    }
+  </script>
+</body>
+</html>
