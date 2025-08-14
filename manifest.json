@@ -1,1 +1,14 @@
-{ "name": "Stellar Runner – Milky Way Drift" }
+{
+  "name": "Stellar Runner – Milky Way Drift",
+  "short_name": "Stellar Runner",
+  "description": "Space-themed endless runner by Vivek Singh.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070d1d",
+  "theme_color": "#0b1330",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
