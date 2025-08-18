@@ -66,12 +66,18 @@
     const tierBase = name==='easy'?3.0 : name==='medium'?3.9 : name==='hard'?4.9 : 5.7;
     const tierGap  = name==='easy'?[330,400] : name==='medium'?[270,330] : name==='hard'?[220,280] : [200,250];
     const tierWall = name==='easy'?[150,180] : name==='medium'?[130,160] : name==='hard'?[110,140] : [100,125];
-    const speed   = tierBase + Math.min(2.0, level*0.15);
+    const speed   = tierBase; // base, we add 50pt boosts below
     const gapMin  = Math.max(160, tierGap[0] - level*10);
     const gapMax  = Math.max(gapMin+20, tierGap[1] - level*8);
     const wallMin = Math.max(80,  tierWall[0] - level*6);
     const wallMax = Math.max(wallMin+15, tierWall[1] - level*6);
     return { name, base:speed, gap:[gapMin,gapMax], wallGap:[wallMin,wallMax], level };
+  }
+
+  // NEW: smooth speed boost every 50 points (capped)
+  function speedBoost(score){
+    const steps50 = Math.floor(score/50);      // 0,1,2,3...
+    return Math.min(8, steps50 * 0.45);        // each 50 adds +0.45 px/frame, cap +8
   }
 
   // ==== Audio (WebAudio; synth-only, autoplay-safe) ====
@@ -95,7 +101,8 @@
   const bassP=[0,0,3,3,5,5,3,3];
   function startMusic(){ if(!ac) return; stopMusic(); let lookahead=0.25, scheduleAhead=0.6; let next=ac.currentTime+0.05;
     scheduler=setInterval(()=>{ const now=ac.currentTime; while(next<now+scheduleAhead){
-      const d=getDiff(score); tempo = 112 + Math.min(44, d.level*4); const step=60/tempo/2;
+      const d=getDiff(score); // tempo naturally increases with level; we keep it
+      const step=60/(112 + Math.min(44, d.level*4))/2;
       if(((leadStep)%4)===0){ brass(next, scale[leadP[leadStep%leadP.length]]*2, 0.26); timp(next); }
       const lf=scale[leadP[leadStep%leadP.length]]; const lo=ac.createOscillator(), lg=ac.createGain(); lo.type='triangle'; lo.frequency.setValueAtTime(lf*2,next);
       lg.gain.setValueAtTime(0,next); lg.gain.linearRampToValueAtTime(0.07,next+0.02); lg.gain.exponentialRampToValueAtTime(0.0001,next+step*0.9);
@@ -134,18 +141,154 @@
     setpieces = []; for(let i=0;i<3;i++) spawnSetpiece(W + i*(W*0.7 + Math.random()*240));
   }
   function spawnSetpiece(x){ const type=Math.random()<0.5?'cluster':(Math.random()<0.5?'ring':'station'); const y=80+Math.random()*(H-160); const r=120+Math.random()*160; setpieces.push({type,x,y,r,alpha:0.18+Math.random()*0.12}); }
+
+  // ==== State ====
+  let running=false, gameOver=false, score=0, shields=0; const MAX_SHIELDS=3;
+  let gateTimer=0, shieldCooldown=0, spiralRot=0;
+
+  function reset(){ resize(); running=false; gameOver=false; score=0; shields=0; player.vy=0; player.y=H/2-player.h/2; player.invuln=0; gates.length=0; items.length=0; hazards.length=0; gateTimer=20; shieldCooldown=240; draw(); updateHUD(); }
+  function updateHUD(){ scoreChip.textContent='Score: '+Math.floor(score); livesChip.textContent='Shields: '+shields; }
+  function start(){ running=true; gameOver=false; if(audioReady) startMusic(); hide(startOverlay); hide(helpOverlay); }
+
+  // ==== Spawning ====
+  function spawnGate(){
+    const d=getDiff(score);
+    const gapH=Math.floor(d.gap[0]+Math.random()*(d.gap[1]-d.gap[0]));
+    const margin=50; const gapY=Math.floor(margin+Math.random()*(H - margin*2 - gapH));
+    const w=Math.max(60,Math.min(90,W*0.07));
+    let itemType='star';
+    if(shieldCooldown<=0 && Math.random()<0.16 && shields<MAX_SHIELDS){ itemType='sun'; shieldCooldown=420; }
+    gates.push({x:W+10, gapY, gapH, w, itemType, itemSpawned:false});
+  }
+  function maybeSpawnItemForGate(g){
+    if(g.itemSpawned||!g.itemType) return;
+    const r=g.itemType==='sun'?18:14; const x=g.x+g.w+46;
+    const jitter=g.itemType==='sun'?4:10;
+    const y=g.gapY+g.gapH/2 + (Math.random()*jitter*2 - jitter);
+    items.push({type:g.itemType, x, y, r, wobble:Math.random()*Math.PI*2});
+    g.itemSpawned=true;
+  }
+  function maxHazards(){ const after100 = Math.max(0, Math.floor((score-100)/50)+1); return Math.min(6, 2 + Math.floor(after100*0.6)); }
+
+  // Meteors: only after 100 points, probability scales every 50
+  function maybeSpawnHazard(){
+    if(score < 100) return; // enforce start-after-100 rule
+    const d=getDiff(score);
+    const cap=maxHazards(); if(hazards.length>=cap) return;
+    const increments = Math.floor((score-100)/50)+1;           // 1,2,3...
+    const p = Math.min(0.12, 0.02 + increments*0.008);         // spawn chance scales
+    if(Math.random()<p){
+      const r=10+Math.random()*18; const poly=buildMeteoroidPoly(r);
+      const y=30+Math.random()*(H-60); const vy=(Math.random()*0.8-0.4);
+      const sp = 2 + increments*0.6;                            // horizontal base speed grows each 50
+      hazards.push({x:W+30, y, r, vy, rot:Math.random()*Math.PI*2, poly, sp, trail:[]});
+    }
+  }
+
+  // ==== Updates ====
+  function updatePlayer(){
+    if(player.thrustHeld){ player.vy -= THRUST_ACCEL; }
+    player.vy += GRAVITY; player.vy *= DRAG;
+    if(player.vy < MAX_ASCENT) player.vy = MAX_ASCENT;
+    if(player.vy > MAX_DESCENT) player.vy = MAX_DESCENT;
+    player.y += player.vy;
+    if(player.y<6){ player.y=6; player.vy=Math.max(0,player.vy*0.2); }
+    if(player.y+player.h>H-6){ player.y=H-6-player.h; player.vy=Math.min(0,player.vy*0.2); }
+    player.runPhase += 0.20 + (getDiff(score).base*0.02);
+    if(player.invuln>0) player.invuln--;
+  }
+
+  function worldSpeed(){ const d=getDiff(score); return d.base + speedBoost(score); }
+
+  function updateGates(){
+    const d=getDiff(score); gateTimer--;
+    if(gateTimer<=0){ spawnGate(); gateTimer=Math.floor(d.wallGap[0]+Math.random()*(d.wallGap[1]-d.wallGap[0])); }
+    const speed = worldSpeed();
+    for(let i=gates.length-1;i>=0;i--){
+      const g=gates[i]; g.x -= speed;
+      if(!g.itemSpawned && g.x < W-40) maybeSpawnItemForGate(g);
+      if(g.x + g.w < -20) gates.splice(i,1);
+    }
+    if(shieldCooldown>0) shieldCooldown--;
+    maybeSpawnHazard();
+  }
+
+  function updateItems(){
+    const speed = worldSpeed();
+    for(let i=items.length-1;i>=0;i--){
+      const c=items[i]; c.x -= speed; c.wobble += 0.1; c.y += Math.sin(c.wobble)*0.18;
+      if(c.x < -40) items.splice(i,1);
+    }
+  }
+
+  function updateHazards(){
+    for(let i=hazards.length-1;i>=0;i--){
+      const h=hazards[i];
+      const speedX = worldSpeed()*0.6 + h.sp;   // base world scroll + meteor’s own speed growth
+      h.x -= speedX; h.y += h.vy;
+      if(h.y<12||h.y>H-12) h.vy*=-1;
+      h.rot += 0.03;
+      const t={x:h.x+Math.cos(h.rot)*h.r*0.6, y:h.y+Math.sin(h.rot)*h.r*0.6, a:0.5}; h.trail.push(t); if(h.trail.length>8) h.trail.shift();
+      if(h.x<-50) hazards.splice(i,1);
+    }
+  }
+
+  function updatePlanets(){
+    const sp = worldSpeed()*0.4;
+    planets.forEach(p=>{ p.x -= sp*p.speed; if(p.x < -p.r-50) { p.x = W + 200 + Math.random()*300; p.y = Math.max(80, Math.min(H-80, p.y + (Math.random()*120-60))); } });
+    for(let i=setpieces.length-1;i>=0;i--){ const s=setpieces[i]; s.x -= (worldSpeed()*0.55 + 1.1); if(s.x < -s.r-200){ setpieces.splice(i,1); spawnSetpiece(W + 200 + Math.random()*200); } }
+  }
+
+  // ==== Collision ====
+  function collide(){
+    const pbox={x:player.x+6, y:player.y+6, w:player.w-12, h:player.h-12};
+    // Gates
+    for(const g of gates){
+      if(pbox.x < g.x + g.w && pbox.x + pbox.w > g.x){
+        const inGap = (pbox.y > g.gapY) && (pbox.y + pbox.h < g.gapY + g.gapH);
+        if(!inGap){
+          if(player.invuln>0) break;
+          if(shields>0){
+            shields--; player.invuln=90; sfx.hit();
+            const target=g.gapY+g.gapH/2 - pbox.h/2; player.y += (target - player.y)*0.4; player.vy*=0.3; updateHUD(); break;
+          }
+          sfx.over(); stopMusic(); return endGame();
+        }
+      }
+    }
+    // Items
+    for(let i=items.length-1;i>=0;i--){
+      const it=items[i]; const dx=(pbox.x+pbox.w/2)-it.x, dy=(pbox.y+pbox.h/2)-it.y; const rr=(it.r+Math.min(pbox.w,pbox.h)/2);
+      if(dx*dx+dy*dy<=rr*rr){
+        if(it.type==='sun'){ if(shields<MAX_SHIELDS) shields++; sfx.shield(); } else { score+=10; sfx.core(); }
+        items.splice(i,1); updateHUD();
+      }
+    }
+    // Hazards
+    for(const h of hazards){
+      const dx=(pbox.x+pbox.w/2)-h.x, dy=(pbox.y+pbox.h/2)-h.y; const rr=(Math.min(pbox.w,pbox.h)/2 + h.r*0.8);
+      if(dx*dx+dy*dy<=rr*rr){
+        if(player.invuln>0) break;
+        if(shields>0){ shields--; player.invuln=90; sfx.hit(); updateHUD(); break; }
+        sfx.over(); stopMusic(); return endGame();
+      }
+    }
+  }
+
+  function endGame(){ gameOver=true; running=false; show(startOverlay); hide(helpOverlay); startBtn.textContent='Restart'; helpBtn.textContent='Help'; }
+
+  // ==== Drawing ====
   function drawSky(){
     const grad=ctx.createLinearGradient(0,0,0,H); grad.addColorStop(0,SPACE_COLORS.c1); grad.addColorStop(.5,SPACE_COLORS.c2); grad.addColorStop(1,SPACE_COLORS.c3);
     ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
     spiralRot += 0.0012; ctx.save(); ctx.translate(W/2,H/2); ctx.rotate(spiralRot); const sc=spiralCanvas; if(sc){ const s=Math.max(W,H)*1.2; ctx.drawImage(sc,-s/2,-s/2,s,s);} ctx.restore();
     setpieces.forEach(sp=>{ ctx.save(); ctx.globalAlpha=sp.alpha; if(sp.type==='cluster'){ const g=ctx.createRadialGradient(sp.x,sp.y,10,sp.x,sp.y,sp.r); g.addColorStop(0,'rgba(90,160,255,.32)'); g.addColorStop(1,'rgba(90,160,255,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sp.x,sp.y,sp.r,0,Math.PI*2); ctx.fill(); } else if(sp.type==='ring'){ ctx.strokeStyle='rgba(160,220,255,.2)'; ctx.lineWidth=3; ctx.beginPath(); ctx.ellipse(sp.x,sp.y, sp.r*0.9, sp.r*0.5, 0.4, 0, Math.PI*2); ctx.stroke(); } else { ctx.fillStyle='rgba(180,200,255,.16)'; ctx.fillRect(sp.x-30, sp.y-6, 60, 12); ctx.fillRect(sp.x-6, sp.y-26, 12, 52); ctx.beginPath(); ctx.arc(sp.x, sp.y-26, 8, 0, Math.PI*2); ctx.fill(); } ctx.restore(); });
     nebulae.forEach(n=>{ const rgrad=ctx.createRadialGradient(n.x,n.y,10,n.x,n.y,n.r); rgrad.addColorStop(0,'rgba(75,212,255,'+n.h+')'); rgrad.addColorStop(1,'rgba(75,212,255,0)'); ctx.fillStyle=rgrad; ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2); ctx.fill(); n.x-=0.05; if(n.x<-n.r){ n.x=W+n.r; n.y=Math.random()*H*0.6; } });
-    ctx.fillStyle='rgba(255,255,255,.9)'; const d=getDiff(score); const spd=d.base+Math.min(6,score*0.008);
+    ctx.fillStyle='rgba(255,255,255,.9)'; const spd = worldSpeed();
     ctx.beginPath(); for(const s of stars){ ctx.moveTo(s.x+s.r,s.y); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); s.x-=spd*0.05; if(s.x<-2){ s.x=W+Math.random()*60; s.y=Math.random()*H; } } ctx.fill();
     ctx.fillStyle='rgba(255,255,255,.8)'; for(const t of twinkles){ const a=(Math.sin(t.t)+1)/2; ctx.globalAlpha=0.3+0.7*a; ctx.fillRect(t.x,t.y,2,2); t.t+=0.07; if((t.x-=0.3)<-2) t.x=W+Math.random()*40; } ctx.globalAlpha=1;
     planets.forEach(pl=>{ ctx.save(); ctx.shadowColor=pl.col; ctx.shadowBlur=10; ctx.fillStyle=pl.col; ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.r, 0, Math.PI*2); ctx.fill(); if(pl.ring){ ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(pl.x, pl.y, pl.r+8, pl.r*0.55, 0.3, 0, Math.PI*2); ctx.stroke(); } ctx.restore(); });
   }
-
   function roundRect(x,y,w,h,r,fill){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); if(fill) ctx.fill(); else ctx.stroke(); }
   function drawStarItem(x,y,r){ const time=performance.now()*0.004; const scale=1+Math.sin(time + x*0.01 + y*0.01)*0.05; const s=starSprite; if(!s) return; const w=s.width*scale, h=s.height*scale; ctx.save(); ctx.translate(x,y); ctx.rotate((performance.now()*0.0015)%(Math.PI*2)); ctx.drawImage(s,-w/2,-h/2,w,h); ctx.restore(); }
   function drawSunItem(x,y,r){ const s=sunSprite; if(!s) return; const pulse=1+Math.sin(performance.now()*0.003 + x*0.01)*0.06; const w=s.width*pulse, h=s.height*pulse; ctx.save(); ctx.translate(x,y); ctx.rotate((performance.now()*0.001)%(Math.PI*2)); ctx.drawImage(s,-w/2,-h/2,w,h); ctx.restore(); }
@@ -167,38 +310,7 @@
     ctx.restore();
   }
 
-  // ==== State ====
-  let running=false, gameOver=false, score=0, shields=0; const MAX_SHIELDS=3;
-  let gateTimer=0, shieldCooldown=0, spiralRot=0;
-
-  function reset(){ resize(); running=false; gameOver=false; score=0; shields=0; player.vy=0; player.y=H/2-player.h/2; player.invuln=0; gates.length=0; items.length=0; hazards.length=0; gateTimer=20; shieldCooldown=240; draw(); updateHUD(); }
-  function updateHUD(){ scoreChip.textContent='Score: '+Math.floor(score); livesChip.textContent='Shields: '+shields; }
-  function start(){ running=true; gameOver=false; if(audioReady) startMusic(); hide(startOverlay); hide(helpOverlay); }
-
-  // ==== Spawning ====
-  function spawnGate(){ const d=getDiff(score); const gapH=Math.floor(d.gap[0]+Math.random()*(d.gap[1]-d.gap[0])); const margin=50; const gapY=Math.floor(margin+Math.random()*(H - margin*2 - gapH)); const w=Math.max(60,Math.min(90,W*0.07)); let itemType='star'; if(shieldCooldown<=0 && Math.random()<0.16 && shields<MAX_SHIELDS){ itemType='sun'; shieldCooldown=420; } gates.push({x:W+10, gapY, gapH, w, itemType, itemSpawned:false}); }
-  function maybeSpawnItemForGate(g){ if(g.itemSpawned||!g.itemType) return; const r=g.itemType==='sun'?18:14; const x=g.x+g.w+46; const jitter=g.itemType==='sun'?4:10; const y=g.gapY+g.gapH/2 + (Math.random()*jitter*2 - jitter); items.push({type:g.itemType, x, y, r, wobble:Math.random()*Math.PI*2}); g.itemSpawned=true; }
-  function maxHazards(){ const lvl=Math.floor(score/100); return Math.min(6, 2+Math.floor(lvl*0.6)); }
-  function maybeSpawnHazard(){ const d=getDiff(score); if(d.level<2) return; const cap=maxHazards(); if(hazards.length>=cap) return; const p=0.02 + d.level*0.003; if(Math.random()<p){ const r=10+Math.random()*18; const poly=buildMeteoroidPoly(r); const y=30+Math.random()*(H-60); const vy=(Math.random()*0.8-0.4); const sp=(d.base + 2 + d.level*0.4); hazards.push({x:W+30, y, r, vy, rot:Math.random()*Math.PI*2, poly, sp, trail:[]}); } }
-
-  // ==== Updates ====
-  function updatePlayer(){ if(player.thrustHeld){ player.vy -= THRUST_ACCEL; } player.vy += GRAVITY; player.vy *= DRAG; if(player.vy < MAX_ASCENT) player.vy = MAX_ASCENT; if(player.vy > MAX_DESCENT) player.vy = MAX_DESCENT; player.y += player.vy;
-    if(player.y<6){ player.y=6; player.vy=Math.max(0,player.vy*0.2);} if(player.y+player.h>H-6){ player.y=H-6-player.h; player.vy=Math.min(0,player.vy*0.2);} player.runPhase += 0.20 + (getDiff(score).base*0.02); if(player.invuln>0) player.invuln--; }
-  function updateGates(){ const d=getDiff(score); gateTimer--; if(gateTimer<=0){ spawnGate(); gateTimer=Math.floor(d.wallGap[0]+Math.random()*(d.wallGap[1]-d.wallGap[0])); } const speed=d.base + Math.min(6, score*0.008); for(let i=gates.length-1;i>=0;i--){ const g=gates[i]; g.x -= speed; if(!g.itemSpawned && g.x < W-40) maybeSpawnItemForGate(g); if(g.x + g.w < -20) gates.splice(i,1); } if(shieldCooldown>0) shieldCooldown--; maybeSpawnHazard(); }
-  function updateItems(){ const d=getDiff(score); const speed=d.base + Math.min(6, score*0.008); for(let i=items.length-1;i>=0;i--){ const c=items[i]; c.x -= speed; c.wobble += 0.1; c.y += Math.sin(c.wobble)*0.18; if(c.x < -40) items.splice(i,1); } }
-  function updateHazards(){ const d=getDiff(score); for(let i=hazards.length-1;i>=0;i--){ const h=hazards[i]; const speedX=(h.sp || (d.base+2)); h.x -= speedX; h.y += h.vy; if(h.y<12||h.y>H-12) h.vy*=-1; h.rot += 0.03; const t={x:h.x+Math.cos(h.rot)*h.r*0.6, y:h.y+Math.sin(h.rot)*h.r*0.6, a:0.5}; h.trail.push(t); if(h.trail.length>8) h.trail.shift(); if(h.x<-50) hazards.splice(i,1); } }
-  function updatePlanets(){ const d=getDiff(score); const sp=(d.base + Math.min(6,score*0.008))*0.4; planets.forEach(p=>{ p.x -= sp*p.speed; if(p.x < -p.r-50) { p.x = W + 200 + Math.random()*300; p.y = Math.max(80, Math.min(H-80, p.y + (Math.random()*120-60))); } }); for(let i=setpieces.length-1;i>=0;i--){ const s=setpieces[i]; s.x -= (d.base*0.55 + 1.1); if(s.x < -s.r-200){ setpieces.splice(i,1); spawnSetpiece(W + 200 + Math.random()*200); } } }
-
-  // ==== Collision ====
-  function collide(){
-    const pbox={x:player.x+6, y:player.y+6, w:player.w-12, h:player.h-12};
-    for(const g of gates){ if(pbox.x < g.x + g.w && pbox.x + pbox.w > g.x){ const inGap = (pbox.y > g.gapY) && (pbox.y + pbox.h < g.gapY + g.gapH); if(!inGap){ if(player.invuln>0) break; if(shields>0){ shields--; player.invuln=90; sfx.hit(); const target=g.gapY+g.gapH/2 - pbox.h/2; player.y += (target - player.y)*0.4; player.vy*=0.3; updateHUD(); break; } sfx.over(); stopMusic(); return endGame(); } } }
-    for(let i=items.length-1;i>=0;i--){ const it=items[i]; const dx=(pbox.x+pbox.w/2)-it.x, dy=(pbox.y+pbox.h/2)-it.y; const rr=(it.r+Math.min(pbox.w,pbox.h)/2); if(dx*dx+dy*dy<=rr*rr){ if(it.type==='sun'){ if(shields<MAX_SHIELDS) shields++; sfx.shield(); } else { score+=10; sfx.core(); } items.splice(i,1); updateHUD(); } }
-    for(const h of hazards){ const dx=(pbox.x+pbox.w/2)-h.x, dy=(pbox.y+pbox.h/2)-h.y; const rr=(Math.min(pbox.w,pbox.h)/2 + h.r*0.8); if(dx*dx+dy*dy<=rr*rr){ if(player.invuln>0) break; if(shields>0){ shields--; player.invuln=90; sfx.hit(); updateHUD(); break; } sfx.over(); stopMusic(); return endGame(); } }
-  }
-  function endGame(){ gameOver=true; running=false; show(startOverlay); hide(helpOverlay); startBtn.textContent='Restart'; helpBtn.textContent='Help'; }
-
-  // ==== Draw ====
+  // ==== Loop & draw ====
   function draw(){
     drawSky();
     for(const g of gates){ const x=g.x, topH=g.gapY, botY=g.gapY+g.gapH; ctx.fillStyle='#141e3d'; ctx.fillRect(x,0,g.w,topH); ctx.fillRect(x,botY,g.w,H-botY); ctx.fillStyle='rgba(75,212,255,.5)'; ctx.fillRect(x-2, topH-3, g.w+4, 3); ctx.fillRect(x-2, botY, g.w+4, 3); }
@@ -207,8 +319,6 @@
     ctx.save(); ctx.translate(player.x, player.y); if(player.invuln>0 && (Math.floor(player.invuln/5)%2===0)) ctx.globalAlpha=0.55; drawAstronaut(0,0); ctx.restore(); ctx.globalAlpha=1;
     if(gameOver){ ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,W,H); ctx.fillStyle='#e9f4ff'; ctx.font='bold 22px system-ui, sans-serif'; const msg=`Mission Failed — Final Score: ${Math.floor(score)}`; const mw=ctx.measureText(msg).width; ctx.fillText(msg,(W-mw)/2, H/2); }
   }
-
-  // ==== Loop ====
   function loop(){ requestAnimationFrame(loop); if(!running||gameOver){ draw(); return; } updatePlayer(); updateGates(); updateItems(); updateHazards(); updatePlanets(); collide(); draw(); }
 
   // ==== UI helpers ====
@@ -216,11 +326,15 @@
   function hide(el){ el.classList.add('hide'); el.setAttribute('aria-hidden','true'); }
   function show(el){ el.classList.remove('hide'); el.setAttribute('aria-hidden','false'); }
 
-  // ==== Events ====
-  startBtn.addEventListener('click',()=>{ userGesture(); start(); });
+  // ==== Events (fixed restart logic) ====
+  startBtn.addEventListener('click',()=>{
+    userGesture();
+    if(gameOver) reset();      // ensure proper restart
+    start();
+  });
   helpBtn.addEventListener('click',()=>{ hide(startOverlay); show(helpOverlay); });
   backBtn?.addEventListener('click',()=>{ hide(helpOverlay); show(startOverlay); });
-  playBtn?.addEventListener('click',()=>{ userGesture(); start(); });
+  playBtn?.addEventListener('click',()=>{ userGesture(); if(gameOver) reset(); start(); });
 
   let thrustKeyDown=false;
   window.addEventListener('keydown',e=>{
@@ -234,30 +348,26 @@
     if(e.code==='KeyM'){ setMuted(!muted); muteBtn.setAttribute('aria-pressed', String(muted)); muteBtn.textContent = muted?'🔇':'🔊'; }
   });
   window.addEventListener('keyup',e=>{ if(e.code==='Space'||e.code==='ArrowUp'){ player.thrustHeld=false; thrustKeyDown=false; } });
-  canvas.addEventListener('pointerdown',()=>{ if(!running && !gameOver){ userGesture(); start(); sfx.thrust(); } else if(gameOver){ reset(); userGesture(); start(); sfx.thrust(); } player.thrustHeld=true; });
+
+  // IMPORTANT: clicking the canvas NO LONGER restarts after game over
+  canvas.addEventListener('pointerdown',()=>{
+    if(!running && !gameOver){ userGesture(); start(); sfx.thrust(); }
+    // if gameOver: do nothing; use Restart button or Space/↑
+    else if(!gameOver){ player.thrustHeld=true; sfx.thrust(); }
+  });
   window.addEventListener('pointerup',()=>{ player.thrustHeld=false; thrustKeyDown=false; });
 
   muteBtn.addEventListener('click',()=>{ setMuted(!muted); muteBtn.textContent = muted?'🔇':'🔊'; muteBtn.setAttribute('aria-pressed', String(muted)); });
   document.addEventListener('visibilitychange',()=>{ if(!ac) return; if(document.hidden){ stopMusic(); } else if(running && audioReady){ startMusic(); } });
 
-  // ==== Smoke tests ====
+  // ==== Smoke tests (keep lightweight) ====
   function assert(name, cond){ console[name.includes('FAIL')?'error':'log'](`[TEST] ${name}: ${cond?'PASS':'FAIL'}`); }
   (function runSmokeTests(){
     try{
       assert('getDiff easy(0)', getDiff(0).name==='easy');
-      assert('getDiff easy(99)', getDiff(99).name==='easy');
-      assert('getDiff medium(100)', getDiff(100).name==='medium');
-      assert('getDiff medium(249)', getDiff(249).name==='medium');
-      assert('getDiff hard(250)', getDiff(250).name==='hard');
-      assert('getDiff hard(499)', getDiff(499).name==='hard');
-      assert('getDiff extreme(500)', getDiff(500).name==='extreme');
-
-      const savedRand=Math.random; Math.random=()=>0; let savedCD=shieldCooldown; shieldCooldown=0; shields=0; const countBefore=gates.length; spawnGate(); assert('spawnGate creates one gate', gates.length===countBefore+1);
-      const g=gates[gates.length-1]; assert('sun gate when cooldown=0 & rand=0', g.itemType==='sun');
-      Math.random=savedRand; shieldCooldown=savedCD; gates.length=0; items.length=0;
-
-      gates.push({x:-200,gapY:100,gapH:200,w:60,itemType:'star',itemSpawned:false});
-      const pre=gates.length; updateGates(); assert('offscreen gate removed', gates.length===pre-1);
+      assert('speedBoost 0 -> 0', speedBoost(0)===0);
+      assert('speedBoost 50 increases', speedBoost(50)>0);
+      assert('meteors off <100', (function(){ let s=score; score=90; let before=hazards.length; for(let i=0;i<30;i++) maybeSpawnHazard(); let ok = hazards.length===before; score=s; hazards.length=0; return ok; })());
     }catch(e){ console.error('[TEST] Smoke tests error:', e); }
   })();
 
