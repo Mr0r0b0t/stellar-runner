@@ -35,8 +35,12 @@
 ---
 
 ## 📷 Screenshots
+<img width="1845" height="966" alt="image" src="https://github.com/user-attachments/assets/30f34ccc-356b-45ed-88dc-428b31c89e07" />
+<img width="1845" height="966" alt="image" src="https://github.com/user-attachments/assets/18ddc1ec-0cfd-4e51-9a3a-9a6e12396e35" />
+<img width="1845" height="966" alt="image" src="https://github.com/user-attachments/assets/1c98eb49-acff-4113-9c47-8b2156fc70b5" />
+<img width="1845" height="966" alt="image" src="https://github.com/user-attachments/assets/4006df71-929c-4f92-b101-0be9f9c0f24b" />
 
-*(Add screenshots of your game here after going live)*
+
 
 ---
 
