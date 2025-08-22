@@ -2,19 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+  />
   <title>Stellar Runner - Milky Way Drift</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="brandWatermark" aria-hidden="true">© 2025 Vivek Singh · Stellar Runner</div>
+  <div class="brandWatermark" aria-hidden="true">
+    © 2025 Vivek Singh · Stellar Runner
+  </div>
+
   <canvas id="game" aria-label="Stellar Runner canvas" role="img"></canvas>
 
   <!-- HUD -->
   <div class="hudTop" id="hud">
-    <div class="chip" id="scoreChip">Score: 0</div>
-    <div class="chip" id="livesChip">Shields: 0</div>
-    <button class="chip" id="muteBtn" aria-pressed="false" title="Mute/Unmute">🔊</button>
+    <div class="hudRow">
+      <div class="chip" id="scoreChip">Score: 0</div>
+      <div class="chip" id="livesChip">Shields: 0</div>
+    </div>
+    <div class="hudRow">
+      <button class="chip" id="pauseBtn" aria-pressed="false" title="Play/Pause">⏸ Pause</button>
+      <button class="chip" id="muteBtn" aria-pressed="false" title="Mute/Unmute">🔊</button>
+    </div>
   </div>
 
   <!-- Start overlay -->
@@ -25,7 +36,7 @@
         <div class="muted"><b>Created by Vivek Singh</b> · © 2025</div>
         <div class="muted">
           Hold <b>Space/↑</b> (or tap/hold) to rise; release to drift down.
-          Collect ⭐ Stars (+10) and bright ☀️ Suns (shield). Avoid meteors and walls.
+          Collect ⭐ Stars (+10), bright ☀️ Suns (shield), avoid meteors and walls.
         </div>
         <div class="row">
           <button id="startBtn" class="btn primary">Start</button>
@@ -45,6 +56,7 @@
           <li>Each gate spawns <b>either</b> a <b>Star</b> (+10) <b>or</b> a bright <b>Sun</b> (extra shield).</li>
           <li><b>Meteoroids</b> start after <b>100 points</b> and get faster each +50 points.</li>
           <li>World speed increases every <b>50 points</b>.</li>
+          <li>Toggle <b>P</b> or the <b>⏸/▶️</b> button to pause/resume.</li>
         </ul>
         <div class="row">
           <button id="backBtn" class="btn ghost">Back</button>
@@ -54,6 +66,9 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <!-- Tiny toast for cheat activation -->
+  <div id="toast" class="toast hide" role="status" aria-live="polite"></div>
+
+  <script src="script.js" defer></script>
 </body>
 </html>
