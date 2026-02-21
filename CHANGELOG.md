@@ -2,7 +2,9 @@
 
 ## [1.1.2] - 2025-02-21
 ### Added
-- **Explicit Cheatcode Prompt:** Tapping the *Shields* HUD chip now directly prompts the user to enter a secret code ("GODMODE") for mobile users who prefer not to use the double-tap sequence.
+- **Explicit Cheatcode Prompt:** Tapping the *Shields* HUD chip now directly prompts the user to enter a secret code ("GODMODE").
+- **Removed Double-Tap Cheat:** Removed the previous double-tap pause trigger for Godmode per user request.
+- **Fixed Touch Start Bug:** Tapping the background canvas on mobile no longer auto-starts the game; explicit taps on "Start" or "Restart" are now strictly required.
 - **PWA Capabilities:** The application can now be properly installed as a standalone Progressive Web App (PWA) on Mobile and Desktop devices directly from the browser.
 - **Improved Help Menu:** Added documentation explaining how to toggle sound via keyboard or UI buttons.
 

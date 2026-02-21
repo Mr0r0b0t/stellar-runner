@@ -177,7 +177,6 @@
   // Hidden cheat (godmode)
   let unlimitedShields = false;
   let cheatBuffer = "";                  // desktop typing
-  let lastPauseTap = 0;                  // mobile double-tap
 
   function showToast(msg) { toast.textContent = msg; toast.classList.remove('hide'); setTimeout(() => toast.classList.add('hide'), 1600); }
 
@@ -514,10 +513,10 @@
 
     if (e.code === 'Space' || e.code === 'ArrowUp') {
       e.preventDefault();
-      if (!running && !gameOver) { userGesture(); start(); sfx.thrust(); }
-      else if (gameOver) { reset(); userGesture(); start(); sfx.thrust(); }
-      if (!thrustKeyDown) { thrustKeyDown = true; if (player.state === 'alive') sfx.thrust(); }
-      player.thrustHeld = true;
+      if (running && !gameOver && !paused) {
+        player.thrustHeld = true;
+        if (!thrustKeyDown) { thrustKeyDown = true; if (player.state === 'alive') sfx.thrust(); }
+      }
     }
     if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); }
     if (e.code === 'KeyM') { setMuted(!muted); muteBtn.setAttribute('aria-pressed', String(muted)); muteBtn.textContent = muted ? '🔇' : '🔊'; }
@@ -526,27 +525,21 @@
   window.addEventListener('blur', () => { if (running && !gameOver && !paused) { togglePause(); } });
 
   // Touch
-  canvas.addEventListener('pointerdown', () => {
-    if (!running && !gameOver) { userGesture(); start(); sfx.thrust(); }
-    else if (!gameOver && !paused) { player.thrustHeld = true; sfx.thrust(); }
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); // Prevents double-firing on some touch screens
+    if (running && !gameOver && !paused) { player.thrustHeld = true; sfx.thrust(); }
   });
   window.addEventListener('pointerup', () => { player.thrustHeld = false; thrustKeyDown = false; });
 
   // Pause/mute
   pauseBtn.addEventListener('click', () => {
-    const now = Date.now();
-    // mobile secret: double-tap Pause within 2s
-    if (now - lastPauseTap < 2000) {
-      unlimitedShields = true; updateHUD();
-      showToast('💀 GODMODE ENABLED – Unlimited Shields!');
-    }
-    lastPauseTap = now;
     togglePause();
   });
   muteBtn.addEventListener('click', () => { setMuted(!muted); muteBtn.textContent = muted ? '🔇' : '🔊'; muteBtn.setAttribute('aria-pressed', String(muted)); });
   document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) { stopMusic(); } else if (running && !paused && audioReady) { startMusic(); } });
 
-  livesChip.addEventListener('click', () => {
+  livesChip.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
     const code = prompt("Enter secret code:");
     if (code && code.trim().toUpperCase() === "GODMODE") {
       unlimitedShields = true;
