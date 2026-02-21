@@ -76,6 +76,7 @@
         <li><b>Meteoroids</b> start after <b>100 points</b> and get faster each +50 points.</li>
         <li>World speed increases every <b>50 points</b>.</li>
         <li>Use the <b>⏸/▶️</b> button to pause/resume.</li>
+        <li>Use the <b>🔊</b> button to mute/unmute audio.</li>
       `;
     }
   }
@@ -202,8 +203,9 @@
   function spawnGate() {
     const d = getDiff(score);
     const gapH = Math.floor(d.gap[0] + Math.random() * (d.gap[1] - d.gap[0]));
-    const margin = 50; const gapY = Math.floor(margin + Math.random() * (H - margin * 2 - gapH));
-    const w = Math.max(60, Math.min(90, W * 0.07));
+    const margin = Math.floor(50 * getSpeedRatio());
+    const gapY = Math.floor(margin + Math.random() * (H - margin * 2 - gapH));
+    const w = Math.max(40, W * 0.08);
     let itemType = 'star'; if (shieldCooldown <= 0 && Math.random() < 0.16 && shields < MAX_SHIELDS) { itemType = 'sun'; shieldCooldown = 420; }
     gates.push({ x: W + 10, gapY, gapH, w, itemType, itemSpawned: false });
   }
@@ -240,11 +242,16 @@
   function updatePlayer() {
     if (player.state === 'blast' || player.state === 'crash') return;
     if (startDelay > 0) {
-      startDelay -= getSpeedRatio();
+      startDelay -= 1;
       player.vy = 0;
       return;
     }
-    const targetVy = player.thrustHeld ? ASCENT_VY : DESCENT_VY;
+
+    const sr = getSpeedRatio();
+    // Portrait mode speed damping! The narrower the screen, the slower the ship falls/rises.
+    const bounceMult = W < H ? 0.6 : 1.0;
+
+    const targetVy = player.thrustHeld ? (ASCENT_VY * bounceMult) : (DESCENT_VY * bounceMult);
     const resp = player.thrustHeld ? VY_RESP_HOLD : VY_RESP_RELEASE;
     player.vy += (targetVy - player.vy) * resp;
     player.y += player.vy;
@@ -398,18 +405,30 @@
       const idx = Math.floor((4 * (80 - startDelay)) / 80);
       const texts = ["3", "2", "1", "GO!"];
       const txt = texts[Math.min(3, idx)];
+
       ctx.save();
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      // Match the dark space background nicely
+      ctx.fillStyle = 'rgba(7, 13, 29, 0.65)';
       ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = '#ffda4a';
-      ctx.font = '900 72px system-ui';
+
+      // Dynamic bouncing text
+      const bounce = 1 + Math.sin((80 - startDelay) * 0.35) * 0.1;
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(bounce, bounce);
+
+      // Glowing neon gradient
+      const grad = ctx.createLinearGradient(0, -40, 0, 40);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(1, '#4bd4ff');
+
+      ctx.fillStyle = grad;
+      ctx.font = '900 86px system-ui';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 10;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 4;
-      ctx.fillText(txt, W / 2, H / 2);
+      ctx.shadowColor = 'rgba(75, 212, 255, 0.8)';
+      ctx.shadowBlur = 24;
+      ctx.fillText(txt, 0, 0);
+
       ctx.restore();
     }
   }

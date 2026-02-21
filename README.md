@@ -2,7 +2,7 @@
 
 **A space-themed endless runner game** where you dash through the galaxy, collect glowing stars for points, grab the blazing sun for extra lives, and dodge meteors as the difficulty ramps up.
 
-🚀 **Version:** 1.1.0
+🚀 **Version:** 1.1.1
 👨‍💻 **Created by:** Vivek Singh (2025)
 
 ---

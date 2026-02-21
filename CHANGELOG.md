@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.1] - 2025-02-21
+### Fixed
+- **Mobile Portrait Overhaul:** Narrowed the width of wall obstacles and heavily scaled down gravity and thrust physics specifically for portrait mode devices, making the game far more playable on completely vertical screens.
+- **Start Sequence:** Redesigned the "3, 2, 1, GO!" animation to pulse dynamically with a neon glow, and corrected a bug that caused the countdown to run too slowly on mobile.
+- **Progressive Web App:** Changed the manifest orientation default to "any" to allow both Landscape and Portrait.
+
 ## [1.1.0] - 2025-02-21
 ### Added
 - **High Score Persistence:** Best scores are now saved locally and tracked in the HUD.
