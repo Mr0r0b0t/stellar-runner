@@ -2,7 +2,7 @@
 
 **A space-themed endless runner game** where you dash through the galaxy, collect glowing stars for points, grab the blazing sun for extra lives, and dodge meteors as the difficulty ramps up.
 
-🚀 **Version:** 1.0
+🚀 **Version:** 1.1.0
 👨‍💻 **Created by:** Vivek Singh (2025)
 
 ---
@@ -27,10 +27,11 @@
 
 * **Animated moving space background** for immersive gameplay.
 * **Dynamic difficulty** – smooth speed increase for balanced challenge.
+* **High Score Persistence** – saves your best runs locally so you always have a goal to chase!
+* **Optimized for both desktop & mobile browsers** – fully responsive UI with adaptive reaction-time speed scaling for portrait mode.
 * **Retro-style Star Wars-inspired soundtrack** and themed sound effects.
-* **Optimized for both desktop & mobile browsers**.
 * **Offline playable** via service worker.
-* **Lightweight & fast-loading** for instant play.
+* **Lightweight & cleanly organized** – separate HTML, CSS, and JS layers for ultimate performance.
 
 ---
 
