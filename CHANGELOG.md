@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.2] - 2025-02-21
+### Added
+- **Explicit Cheatcode Prompt:** Tapping the *Shields* HUD chip now directly prompts the user to enter a secret code ("GODMODE") for mobile users who prefer not to use the double-tap sequence.
+- **PWA Capabilities:** The application can now be properly installed as a standalone Progressive Web App (PWA) on Mobile and Desktop devices directly from the browser.
+- **Improved Help Menu:** Added documentation explaining how to toggle sound via keyboard or UI buttons.
+
 ## [1.1.1] - 2025-02-21
 ### Fixed
 - **Mobile Portrait Overhaul:** Narrowed the width of wall obstacles and heavily scaled down gravity and thrust physics specifically for portrait mode devices, making the game far more playable on completely vertical screens.

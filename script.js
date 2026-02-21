@@ -546,6 +546,15 @@
   muteBtn.addEventListener('click', () => { setMuted(!muted); muteBtn.textContent = muted ? '🔇' : '🔊'; muteBtn.setAttribute('aria-pressed', String(muted)); });
   document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) { stopMusic(); } else if (running && !paused && audioReady) { startMusic(); } });
 
+  livesChip.addEventListener('click', () => {
+    const code = prompt("Enter secret code:");
+    if (code && code.trim().toUpperCase() === "GODMODE") {
+      unlimitedShields = true;
+      updateHUD();
+      showToast('💀 GODMODE ENABLED – Unlimited Shields!');
+    }
+  });
+
   // Overlays
   startBtn.addEventListener('click', () => { userGesture(); if (gameOver) reset(); start(); });
   helpBtn.addEventListener('click', () => { hide(startOverlay); show(helpOverlay); });
