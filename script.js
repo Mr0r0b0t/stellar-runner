@@ -82,7 +82,7 @@
   window.addEventListener('resize', resize);
 
   // Stable flight dynamics
-  const ASCENT_VY = -7.8, DESCENT_VY = 7.6, VY_RESP_HOLD = 0.2, VY_RESP_RELEASE = 0.14, EDGE_DAMPING = 0.28;
+  const ASCENT_VY = -6.5, DESCENT_VY = 6.0, VY_RESP_HOLD = 0.10, VY_RESP_RELEASE = 0.08, EDGE_DAMPING = 0.28;
 
   // Difficulty
   function getDiff(score) {
@@ -171,6 +171,7 @@
   let running = false, gameOver = false, paused = false, score = 0, shields = 0; const MAX_SHIELDS = 3;
   let gateTimer = 0, shieldCooldown = 0, spiralRot = 0, hazardClock = 0, celebrating = false;
   let highScore = parseInt(localStorage.getItem('stellar_highscore') || 0);
+  let startDelay = 0;
 
   // Hidden cheat (godmode)
   let unlimitedShields = false;
@@ -188,7 +189,7 @@
     if (startTitle) startTitle.innerHTML = `Stellar Runner - Milky Way Drift`;
     if (startInstructions) startInstructions.style.display = 'block';
 
-    player.vy = 0; player.y = H / 2 - player.h / 2; player.invuln = 0; player.state = 'alive'; player.stateTimer = 0;
+    player.vy = 0; player.y = H / 2 - player.h / 2; player.invuln = 0; player.state = 'alive'; player.stateTimer = 0; startDelay = 80;
     gates.length = 0; items.length = 0; hazards.length = 0; particles.length = 0; player.x = Math.max(40, W * 0.15);
     gateTimer = 20; shieldCooldown = 240; flashA = 0; shakeMag = 0; hazardClock = 0;
     draw(); updateHUD(); updatePauseUI();
@@ -238,6 +239,11 @@
 
   function updatePlayer() {
     if (player.state === 'blast' || player.state === 'crash') return;
+    if (startDelay > 0) {
+      startDelay -= getSpeedRatio();
+      player.vy = 0;
+      return;
+    }
     const targetVy = player.thrustHeld ? ASCENT_VY : DESCENT_VY;
     const resp = player.thrustHeld ? VY_RESP_HOLD : VY_RESP_RELEASE;
     player.vy += (targetVy - player.vy) * resp;
@@ -386,6 +392,26 @@
     // particles + flash
     for (const p of particles) { ctx.globalAlpha = Math.max(0, p.life / 40); ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
     if (flashA > 0) { ctx.save(); ctx.globalAlpha = flashA; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+
+    // Countdown over ~1 second (80 ticks)
+    if (startDelay > 0 && running && !gameOver) {
+      const idx = Math.floor((4 * (80 - startDelay)) / 80);
+      const texts = ["3", "2", "1", "GO!"];
+      const txt = texts[Math.min(3, idx)];
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#ffda4a';
+      ctx.font = '900 72px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 4;
+      ctx.fillText(txt, W / 2, H / 2);
+      ctx.restore();
+    }
   }
 
   function updatePlanets() {

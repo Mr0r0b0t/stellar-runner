@@ -1,5 +1,5 @@
 // Simple cache for offline play
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
 const CORE = [
   './',
   './index.html',
