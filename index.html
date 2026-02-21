@@ -7,7 +7,7 @@
     content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1330" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="assets/icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
   <title>Stellar Runner - Milky Way Drift</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -61,6 +61,18 @@
         <div class="row">
           <button id="backBtn" class="btn ghost">Back</button>
           <button id="playBtn" class="btn primary">Play</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause modal -->
+  <div class="overlay hide" id="pauseOverlay" aria-hidden="true">
+    <div class="panel" role="dialog" aria-labelledby="pauseTitle">
+      <div class="content" style="text-align: center;">
+        <h2 class="title" id="pauseTitle">Game Paused</h2>
+        <div class="row" style="justify-content: center; margin-top: 20px;">
+          <button id="resumeBtn" class="btn primary" style="font-size: 20px; padding: 12px 32px;">▶️ Resume</button>
         </div>
       </div>
     </div>

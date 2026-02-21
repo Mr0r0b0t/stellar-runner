@@ -12,6 +12,8 @@
   const livesChip = document.getElementById('livesChip');
   const muteBtn = document.getElementById('muteBtn');
   const pauseBtn = document.getElementById('pauseBtn');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const resumeBtn = document.getElementById('resumeBtn');
   const toast = document.getElementById('toast');
   const startInstructions = document.getElementById('startInstructions');
   const helpInstructions = document.getElementById('helpInstructions');
@@ -196,7 +198,18 @@
   }
   function updateHUD() { scoreChip.textContent = 'Score: ' + Math.floor(score); livesChip.textContent = 'Shields: ' + (unlimitedShields ? '∞' : shields); highScoreChip.textContent = 'Best: ' + highScore; }
   function start() { running = true; paused = false; gameOver = false; if (audioReady) startMusic(); hide(startOverlay); hide(helpOverlay); updatePauseUI(); }
-  function togglePause() { if (!running || gameOver) return; paused = !paused; if (paused) stopMusic(); else if (audioReady) startMusic(); updatePauseUI(); }
+  function togglePause() {
+    if (!running || gameOver) return;
+    paused = !paused;
+    if (paused) {
+      stopMusic();
+      show(pauseOverlay);
+    } else {
+      hide(pauseOverlay);
+      if (audioReady) startMusic();
+    }
+    updatePauseUI();
+  }
   function updatePauseUI() { pauseBtn.textContent = paused ? '▶️ Resume' : '⏸ Pause'; pauseBtn.setAttribute('aria-pressed', String(paused)); }
 
   function spawnGate() {
@@ -538,17 +551,22 @@
   muteBtn.addEventListener('click', () => { setMuted(!muted); muteBtn.textContent = muted ? '🔇' : '🔊'; muteBtn.setAttribute('aria-pressed', String(muted)); });
   document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) { stopMusic(); } else if (running && !paused && audioReady) { startMusic(); } });
 
-  livesChip.addEventListener('pointerdown', (e) => {
+  livesChip.addEventListener('click', (e) => {
     e.stopPropagation();
-    const code = prompt("Enter secret code:");
-    if (code && code.trim().toUpperCase() === "GODMODE") {
-      unlimitedShields = true;
-      updateHUD();
-      showToast('💀 GODMODE ENABLED – Unlimited Shields!');
-    }
+    livesChip.blur(); // Remove focus
+    // Use timeout to allow touch events to release their lock before synchronous prompt
+    setTimeout(() => {
+      const code = prompt("Enter secret code:");
+      if (code && code.trim().toUpperCase() === "GODMODE") {
+        unlimitedShields = true;
+        updateHUD();
+        showToast('💀 GODMODE ENABLED – Unlimited Shields!');
+      }
+    }, 10);
   });
 
   // Overlays
+  resumeBtn?.addEventListener('click', () => { userGesture(); togglePause(); });
   startBtn.addEventListener('click', () => { userGesture(); if (gameOver) reset(); start(); });
   helpBtn.addEventListener('click', () => { hide(startOverlay); show(helpOverlay); });
   backBtn?.addEventListener('click', () => { hide(helpOverlay); show(startOverlay); });
