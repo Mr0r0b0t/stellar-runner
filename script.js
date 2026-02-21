@@ -83,7 +83,7 @@
   window.addEventListener('resize', resize);
 
   // Stable flight dynamics
-  const ASCENT_VY = -6.5, DESCENT_VY = 6.0, VY_RESP_HOLD = 0.10, VY_RESP_RELEASE = 0.08, EDGE_DAMPING = 0.28;
+  const ASCENT_VY = -7.0, DESCENT_VY = 6.8, VY_RESP_HOLD = 0.15, VY_RESP_RELEASE = 0.11, EDGE_DAMPING = 0.28;
 
   // Difficulty
   function getDiff(score) {
@@ -249,7 +249,7 @@
 
     const sr = getSpeedRatio();
     // Portrait mode speed damping! The narrower the screen, the slower the ship falls/rises.
-    const bounceMult = W < H ? 0.6 : 1.0;
+    const bounceMult = W < H ? 0.82 : 1.0;
 
     const targetVy = player.thrustHeld ? (ASCENT_VY * bounceMult) : (DESCENT_VY * bounceMult);
     const resp = player.thrustHeld ? VY_RESP_HOLD : VY_RESP_RELEASE;
